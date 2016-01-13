@@ -1,4 +1,7 @@
-<html><body>
-Browser did not accept redirect.
-<a href="/aplay/mkfile/">Click here</a>
-</body></html>
+</$objtype/mkfile
+
+TARG=aplay
+OFILES=$TARG.$O
+BIN=$home/bin/$objtype
+
+</sys/src/cmd/mkone
