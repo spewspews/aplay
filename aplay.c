@@ -7,7 +7,7 @@
 
 enum
 {
-	DEBUG = 0,
+	DEBUG = 1,
 	STACK = 8192
 };
 
@@ -19,7 +19,6 @@ struct Codecargs
 	Channel *pidchan;
 	char *codec;
 	int infd[2];
-	int outfd[2];
 };
 
 struct Kbdargs
@@ -181,47 +180,26 @@ mousethread(void *a)
 void
 startstop(Codecargs *codecargs)
 {
-	static int inpid, outpid;
+	static int inpid;
 	Channel *c;
 
 	if(pause == 0){
-		assert(codecpid != 0 && inpid != 0 && outpid != 0);
+		assert(codecpid != 0 && inpid != 0);
 		postnote(PNPROC, codecpid, "die yankee pig dog");
 		threadkill(inpid);
-		threadkill(outpid);
-		codecpid = inpid = outpid = 0;
+		codecpid = inpid = 0;
 	}else{
-		assert(codecpid == 0 && inpid == 0 && outpid == 0);
-
+		assert(codecpid == 0 && inpid == 0);
 		if(pipe(codecargs->infd) < 0)
 			threadsfatal();
-		if(pipe(codecargs->outfd) < 0)
-			threadsfatal();
-
-/*
- *		I'm leaking fd's here.
- */
-if(DEBUG){
-		fprint(2, "inpipes: %d %d\n", codecargs->infd[0], codecargs->infd[1]);
-		fprint(2, "outpipes: %d %d\n", codecargs->outfd[0], codecargs->outfd[1]);
-}
 		proccreate(codecproc, codecargs, STACK);
 		codecpid = recvul(codecargs->pidchan);
-
 		c = chancreate(sizeof(int), 0);
-
 		inpid = proccreate(inproc, c, STACK);
 		send(c, &codecargs->infd[1]);
-
-		outpid = proccreate(outproc, c, STACK);
-		send(c, &codecargs->outfd[0]);
-
 		chanfree(c);
-
 		close(codecargs->infd[0]);
 		close(codecargs->infd[1]);
-		close(codecargs->outfd[0]);
-		close(codecargs->outfd[1]);
 	}
 	pause ^= 1;
 }
@@ -261,31 +239,6 @@ inproc(void *a)
 }
 
 void
-outproc(void *a)
-{
-	Channel *c;
-	int fd, i;
-	char buf[1024];
-	long n;
-
-	threadsetname("outproc");
-	rfork(RFFDG);
-	c = a;
-	recv(c, &fd);
-	dup(fd, 0);
-	close(fd);
-	for(i = 2; i < 20; i++)
-		close(i);
-	for(;;){
-		n = read(0, buf, sizeof(buf));
-		if(n <= 0)
-			threadexits(0);
-		if(write(1, buf, n) != n)
-			threadexits(0);
-	}
-}
-
-void
 codecproc(void *a)
 {
 	Codecargs *codecargs;
@@ -301,12 +254,6 @@ codecproc(void *a)
 		threadsfatal();
 	}
 	close(codecargs->infd[0]);
-
-	close(codecargs->outfd[0]);
-	if(dup(codecargs->outfd[1], 1) < 0){
-		threadsfatal();
-	}
-	close(codecargs->outfd[1]);
 
 	for(i = 3; i < 20; i++)
 		close(i);
