@@ -181,8 +181,10 @@ void
 startstop(Codecargs *codecargs)
 {
 	static int inpid;
-	Channel *c;
+	static Channel *inchan;
 
+	if(inchan == nil)
+		inchan = chancreate(sizeof(int), 0);
 	if(pause == 0){
 		assert(codecpid != 0 && inpid != 0);
 		postnote(PNPROC, codecpid, "die yankee pig dog");
@@ -194,10 +196,8 @@ startstop(Codecargs *codecargs)
 			threadsfatal();
 		proccreate(codecproc, codecargs, STACK);
 		codecpid = recvul(codecargs->pidchan);
-		c = chancreate(sizeof(int), 0);
-		inpid = proccreate(inproc, c, STACK);
-		send(c, &codecargs->infd[1]);
-		chanfree(c);
+		inpid = proccreate(inproc, inchan, STACK);
+		send(inchan, &codecargs->infd[1]);
 		close(codecargs->infd[0]);
 		close(codecargs->infd[1]);
 	}
