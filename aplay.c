@@ -7,7 +7,6 @@
 
 enum
 {
-	DEBUG = 1,
 	STACK = 8192
 };
 
@@ -43,7 +42,6 @@ void codecproc(void*);
 void usage(void);
 void shutdown(char*);
 void startstop(Codecargs*);
-void start(Codecargs*);
 void threadsfatal(void);
 
 void
