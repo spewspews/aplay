@@ -39,6 +39,7 @@ void inproc(void*);
 void outproc(void*);
 void timerproc(void*);
 void codecproc(void*);
+void waitforaudio(void);
 void usage(void);
 void shutdown(char*);
 void startstop(Codecargs*);
@@ -189,6 +190,7 @@ startstop(Codecargs *codecargs)
 		threadkill(inpid);
 		codecpid = inpid = 0;
 	}else{
+		waitforaudio();
 		assert(codecpid == 0 && inpid == 0);
 		if(pipe(codecargs->infd) < 0)
 			threadsfatal();
@@ -307,6 +309,21 @@ resized(int new)
 	flushimage(display, 1);
 }
 
+void
+waitforaudio(void)
+{
+	Dir *d;
+
+	for(;;){
+		d = dirstat(devaudio);
+		if(d->length == 0)
+			break;
+		free(d);
+		sleep(100);
+	}
+	free(d);
+}
+	
 void
 usage(void)
 {
