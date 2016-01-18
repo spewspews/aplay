@@ -48,7 +48,7 @@ void threadsfatal(void);
 void
 threadmain(int argc, char **argv)
 {
-	static Codecargs codecargs;
+	Codecargs codecargs;
 	Kbdargs kbdargs;
 	int timer;
 
