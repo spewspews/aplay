@@ -1,7 +1,9 @@
 </$objtype/mkfile
 
-TARG=aplay
-OFILES=$TARG.$O
+TARG=\
+	aplay\
+	volume\
+
 BIN=$home/bin/$objtype
 
-</sys/src/cmd/mkone
+</sys/src/cmd/mkmany

@@ -32,18 +32,19 @@ vlong maxoff, curoff;
 int codecpid, pause;
 Image *back;
 
-void resized(int new);
-void mousethread(void*);
-void kbdthread(void*);
-void inproc(void*);
-void outproc(void*);
-void timerproc(void*);
 void codecproc(void*);
-void waitforaudio(void);
-void usage(void);
+void inproc(void*);
+void kbdthread(void*);
+void mousethread(void*);
+void outproc(void*);
+void resized(int new);
 void shutdown(char*);
+void start(Codecargs*);
 void startstop(Codecargs*);
 void threadsfatal(void);
+void timerproc(void*);
+void usage(void);
+void waitforaudio(void);
 
 void
 threadmain(int argc, char **argv)
@@ -91,8 +92,7 @@ threadmain(int argc, char **argv)
 	threadcreate(kbdthread, &kbdargs, STACK);
 	timer = 500;
 	proccreate(timerproc, &timer, STACK);
-	pause = 1;
-	startstop(&codecargs);
+	start(&codecargs);
 	resized(0);
 	shutdown(recvp(kbdargs.exit));
 }
@@ -123,7 +123,7 @@ kbdthread(void *a)
 		case ' ':
 			startstop(cargs);
 //			if(pause)
-//				curoff -= 16384;
+//				curoff -= 327680;
 //			resized(0);
 			break;
 		}
@@ -177,34 +177,6 @@ mousethread(void *a)
 }
 
 void
-startstop(Codecargs *codecargs)
-{
-	static int inpid;
-	static Channel *inchan;
-
-	if(inchan == nil)
-		inchan = chancreate(sizeof(int), 0);
-	if(pause == 0){
-		assert(codecpid != 0 && inpid != 0);
-		postnote(PNPROC, codecpid, "die yankee pig dog");
-		threadkill(inpid);
-		codecpid = inpid = 0;
-	}else{
-		waitforaudio();
-		assert(codecpid == 0 && inpid == 0);
-		if(pipe(codecargs->infd) < 0)
-			threadsfatal();
-		proccreate(codecproc, codecargs, STACK);
-		codecpid = recvul(codecargs->pidchan);
-		inpid = proccreate(inproc, inchan, STACK);
-		send(inchan, &codecargs->infd[1]);
-		close(codecargs->infd[0]);
-		close(codecargs->infd[1]);
-	}
-	pause ^= 1;
-}
-
-void
 inproc(void *a)
 {
 	Channel *c;
@@ -248,13 +220,11 @@ codecproc(void *a)
 	threadsetname("codecproc");
 	rfork(RFFDG);
 	codecargs = a;
-
 	close(codecargs->infd[1]);
 	if(dup(codecargs->infd[0], 0) < 0){
 		threadsfatal();
 	}
 	close(codecargs->infd[0]);
-
 	for(i = 3; i < 20; i++)
 		close(i);
 	args[0] = codecargs->codec;
@@ -323,7 +293,7 @@ waitforaudio(void)
 	}
 	free(d);
 }
-	
+
 void
 usage(void)
 {
@@ -344,4 +314,45 @@ threadsfatal(void)
 {
 	fprint(2, "%r\n");
 	shutdown("error");
+}
+
+Channel *inchan;
+int inpid;
+
+void
+start(Codecargs *codecargs)
+{
+	inchan = chancreate(sizeof(int), 0);
+	assert(codecpid == 0 && inpid == 0);
+	if(pipe(codecargs->infd) < 0)
+		threadsfatal();
+	proccreate(codecproc, codecargs, STACK);
+	codecpid = recvul(codecargs->pidchan);
+	inpid = proccreate(inproc, inchan, STACK);
+	send(inchan, &codecargs->infd[1]);
+	close(codecargs->infd[0]);
+	close(codecargs->infd[1]);
+}
+
+void
+startstop(Codecargs *codecargs)
+{
+	if(pause == 0){
+		assert(codecpid != 0 && inpid != 0);
+		postnote(PNPROC, codecpid, "die yankee pig dog");
+		threadkill(inpid);
+		codecpid = inpid = 0;
+	}else{
+		waitforaudio();
+		assert(codecpid == 0 && inpid == 0);
+		if(pipe(codecargs->infd) < 0)
+			threadsfatal();
+		proccreate(codecproc, codecargs, STACK);
+		codecpid = recvul(codecargs->pidchan);
+		inpid = proccreate(inproc, inchan, STACK);
+		send(inchan, &codecargs->infd[1]);
+		close(codecargs->infd[0]);
+		close(codecargs->infd[1]);
+	}
+	pause ^= 1;
 }
